@@ -1,0 +1,27 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-PLACEHOLDER_APP-backend-blue
+  namespace: PLACEHOLDER_NAMESPACE_APP
+spec:
+  maxReplicas: 10
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: deployment
+    name: PLACEHOLDER_APP-backend-blue
+  targetCPUUtilizationPercentage: 50
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-PLACEHOLDER_APP-backend-green
+  namespace: PLACEHOLDER_NAMESPACE_APP
+spec:
+  maxReplicas: 10
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: deployment
+    name: PLACEHOLDER_APP-backend-green
+  targetCPUUtilizationPercentage: 50
