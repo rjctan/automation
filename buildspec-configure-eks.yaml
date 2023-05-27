@@ -41,6 +41,7 @@ phases:
       - |
         aws eks update-kubeconfig            \
           --name $AMX_PPL_CLUSTER_EKS        \
+          --role-arn ${EKS_KUBECTL_ROLE_ARN} \
           --region $AWS_REGION
       - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep "AMX-PPL-CB-EKS-${ACCOUNT_ID}-$AWS_REGION")
       - |
