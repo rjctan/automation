@@ -43,8 +43,8 @@ phases:
           --name $AMX_PPL_CLUSTER_EKS        \
           --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
           --region $AWS_REGION
-      - kubectl get cm -n kube-system
-      - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn)
+      - kubectl get cm aws-auth -n kube-system -o yaml
+      - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep otro)
       - |
         if [ -z "${EksCheckRoleBackend}" ]
         then
@@ -54,7 +54,7 @@ phases:
         fi
       - oidc_provider=$(aws eks describe-cluster --name $AMX_PPL_CLUSTER_EKS --region $AWS_REGION --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
       - |
-        if [ ! ${oidc_provider} ]
+        if [ -z ${oidc_provider} ]
         then
           eksctl utils associate-iam-oidc-provider \
             --region $AWS_REGION                   \
