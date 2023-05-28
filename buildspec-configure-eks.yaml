@@ -33,7 +33,7 @@ phases:
       - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output=text)
       - EKS_DEPLOYER_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX_PPL_CLUSTER_EKS-iam-rol-eks-deployer"
       - EKS_ROLE_KUBECTL_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AMX-PPL-CB-EKS-KUBECTL-${ACCOUNT_ID}-$AWS_REGION"
-      - EKS_ROLE_BACKEND_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX-PPL-CB-EKS-${ACCOUNT_ID}-$AWS_REGION"
+      - EKS_ROLE_BACKEND_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX_PPL_CLUSTER_EKS-${ACCOUNT_ID}-$AWS_REGION"
       - CREDENTIALS=$(aws sts assume-role --role-arn ${EKS_ROLE_KUBECTL_ARN} --role-session-name amx-ppl-cc-admin)
       - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
       - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
@@ -46,7 +46,6 @@ phases:
           --region $AWS_REGION
       - kubectl get pods -A
       - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep "${EKS_ROLE_BACKEND_ARN}")
-      - echo ${EksCheckRoleBackend}
       - |
         if [ -z "${EksCheckRoleBackend}" ]
         then
