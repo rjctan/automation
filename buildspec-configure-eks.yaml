@@ -38,14 +38,12 @@ phases:
       - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
       - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
       - export AWS_SESSION_TOKEN=$(echo "${CREDENTIALS}" | jq -r '.Credentials.SessionToken')
-      - echo ${EKS_ROLE_BACKEND_ARN}
+      - echo "$AMX_PPL_CLUSTER_EKS-${ACCOUNT_ID}-$AWS_REGION"
       - |
         aws eks update-kubeconfig            \
           --name $AMX_PPL_CLUSTER_EKS        \
           --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
           --region $AWS_REGION
-      - kubectl get pods -A
-      - echo "kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep \"${EKS_ROLE_BACKEND_ARN}\""
       - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep "$AMX_PPL_CLUSTER_EKS-${ACCOUNT_ID}-$AWS_REGION")
       - |
         if [ -z "${EksCheckRoleBackend}" ]
