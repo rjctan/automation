@@ -46,6 +46,7 @@ phases:
           --region $AWS_REGION
       - kubectl get pods -A
       - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep "${EKS_ROLE_BACKEND_ARN}")
+      - echo ${EksCheckRoleBackend}
       - |
         if [ -z "${EksCheckRoleBackend}" ]
         then
