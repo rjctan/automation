@@ -46,6 +46,8 @@ phases:
           --region $AWS_REGION
       - kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep amx-ppl-cc-des-iam-rol-eks-deployer
       - kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep $AMX_PPL_CLUSTER_EKS-iam-rol-eks-deployer
+      - eksctl get iamidentitymapping --cluster $AMX_PPL_CLUSTER_EKS --region=$AWS_REGION --arn ${EKS_ROLE_BACKEND_ARN}
+      - EksCheckRoleBackend1=$(eksctl get iamidentitymapping --cluster $AMX_PPL_CLUSTER_EKS --region=$AWS_REGION --arn ${EKS_ROLE_BACKEND_ARN})
       - EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION}) 
       - |
         if [ -z "${EksCheckRoleBackend}" ]
