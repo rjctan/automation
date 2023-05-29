@@ -30,9 +30,7 @@ phases:
       - aws --version
   pre_build:
     commands:
-      - 
-        | 
-        enable -n exit
+      - set +e
       - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output=text)
       - EKS_DEPLOYER_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX_PPL_CLUSTER_EKS-iam-rol-eks-deployer"
       - EKS_ROLE_KUBECTL_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AMX-PPL-CB-EKS-KUBECTL-${ACCOUNT_ID}-$AWS_REGION"
