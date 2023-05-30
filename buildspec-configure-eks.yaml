@@ -42,10 +42,10 @@ phases:
       - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
       - export AWS_SESSION_TOKEN=$(echo "${CREDENTIALS}" | jq -r '.Credentials.SessionToken')
       - |
-        aws eks update-kubeconfig           \
-        --name $AMX_PPL_CLUSTER_EKS         \
-        --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
-        --region $AWS_REGION
+        aws eks update-kubeconfig            \
+          --name $AMX_PPL_CLUSTER_EKS         \
+          --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
+          --region $AWS_REGION
       - kubectl get pods -A -o wide
       - kubectl get deployment -A -o wide
       - kubectl top pods -A
