@@ -30,16 +30,15 @@ phases:
       - aws --version
   pre_build:
     commands:
+      - oidc_id=$(aws eks describe-cluster --name $AMX_PPL_CLUSTER_EKS --region $AWS_REGION --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
+      - oidc_provider=$(aws iam list-open-id-connect-providers | grep ${oidc_id} | cut -d "/" -f4)
       - |
-        oidc_id=$(aws eks describe-cluster --name $AMX_PPL_CLUSTER_EKS --region $AWS_REGION --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
-        oidc_provider=$(aws iam list-open-id-connect-providers | grep ${oidc_id} | cut -d "/" -f4)
-
         if [ ! ${oidc_provider} ]
         then
-          eksctl utils associate-iam-oidc-provider \
-          --region $AWS_REGION                    \
-          --cluster $AMX_PPL_CLUSTER_EKS          \
-          --approve
+          eksctl utils associate-iam-oidc-provider  \
+            --region $AWS_REGION                    \
+            --cluster $AMX_PPL_CLUSTER_EKS          \
+            --approve
         fi
    build:
     commands:
