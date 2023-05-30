@@ -40,7 +40,7 @@ phases:
             --cluster $AMX_PPL_CLUSTER_EKS          \
             --approve
         fi
-   build:
+  build:
     commands:
       - chmod +x ConfigureEks.sh
       - ./ConfigureEks.sh $AMX_PPL_ENV $AMX_PPL_CLUSTER_EKS $AMX_APP_PREFIX $AMX_PPL_NAMESPACE $AMX_PPL_VPC_ID $AMX_PPL_ECR_REPO $AWS_REGION
