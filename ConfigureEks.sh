@@ -44,3 +44,7 @@ then
   --cluster ${AMX_PPL_CLUSTER_EKS}         \
   --approve
 fi
+
+kubectl get pods -A -o wide
+kubectl get deployment -A -o wide
+kubectl top pods -A

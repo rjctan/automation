@@ -30,26 +30,12 @@ phases:
       - aws --version
   pre_build:
     commands:
+   build:
+    commands:
       - chmod +x ConfigureEks.sh
       - ./ConfigureEks.sh $AMX_PPL_ENV $AMX_PPL_CLUSTER_EKS $AMX_APP_PREFIX $AMX_PPL_NAMESPACE $AMX_PPL_VPC_ID $AMX_PPL_ECR_REPO
-  build:
-    commands:
   post_build:
     commands:
-      - EKS_ROLE_KUBECTL_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AMX-PPL-CB-EKS-KUBECTL-${ACCOUNT_ID}-${AWS_REGION}"
-      - EKS_DEPLOYER_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${AMX_PPL_CLUSTER_EKS}-iam-rol-eks-deployer"
-      - CREDENTIALS=$(aws sts assume-role --role-arn ${EKS_ROLE_KUBECTL_ARN} --role-session-name amx-ppl-cc-admin)
-      - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
-      - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
-      - export AWS_SESSION_TOKEN=$(echo "${CREDENTIALS}" | jq -r '.Credentials.SessionToken')
-      - |
-        aws eks update-kubeconfig            \
-          --name $AMX_PPL_CLUSTER_EKS         \
-          --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
-          --region $AWS_REGION
-      - kubectl get pods -A -o wide
-      - kubectl get deployment -A -o wide
-      - kubectl top pods -A
 artifacts:
   files:
     - manifests/**/*
