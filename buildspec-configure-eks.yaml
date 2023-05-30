@@ -1,9 +1,6 @@
 
 version: 0.2
 
-env:
-  shell: bash
-
 environment_variables:
   plaintext:
     AMX_PPL_ENV: "DES"
@@ -33,161 +30,21 @@ phases:
       - aws --version
   pre_build:
     commands:
-      - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output=text)
-      - EKS_DEPLOYER_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX_PPL_CLUSTER_EKS-iam-rol-eks-deployer"
-      - EKS_ROLE_KUBECTL_ARN="arn:aws:iam::${ACCOUNT_ID}:role/AMX-PPL-CB-EKS-KUBECTL-${ACCOUNT_ID}-$AWS_REGION"
-      - EKS_ROLE_BACKEND_ARN="arn:aws:iam::${ACCOUNT_ID}:role/$AMX_PPL_CLUSTER_EKS-${ACCOUNT_ID}-$AWS_REGION"
-      - CREDENTIALS=$(aws sts assume-role --role-arn ${EKS_ROLE_KUBECTL_ARN} --role-session-name amx-ppl-cc-admin)
-      - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
-      - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
-      - export AWS_SESSION_TOKEN=$(echo "${CREDENTIALS}" | jq -r '.Credentials.SessionToken')
       - |
-        aws eks update-kubeconfig            \
-          --name $AMX_PPL_CLUSTER_EKS        \
-          --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
-          --region $AWS_REGION
-      - EksCheckRoleBackend=$(kubectl describe cm aws-auth -n kube-system | grep rolearn | grep $AMX_PPL_CLUSTER_EKS-${ACCOUNT_ID}-$AWS_REGION) 
-      - |
-        if [ -z "${EksCheckRoleBackend}" ]
-        then
-          ROLE="    - groups:\n      - system:masters\n      rolearn: ${EKS_ROLE_BACKEND_ARN}\n      username: codebuild-eks"
-          kubectl get -n kube-system configmap/aws-auth -o yaml | awk "/mapRoles: \|/{print;print \"${ROLE}\";next}1" > /tmp/aws-auth-patch-backend.yml
-          kubectl patch configmap/aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch-backend.yml)"
-        fi
-      - oidc_provider=$(aws eks describe-cluster --name $AMX_PPL_CLUSTER_EKS --region $AWS_REGION --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
-      - |
-        if [ -z ${oidc_provider} ]
+        oidc_id=$(aws eks describe-cluster --name $AMX_PPL_CLUSTER_EKS --region $AWS_REGION --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
+        oidc_provider=$(aws iam list-open-id-connect-providers | grep ${oidc_id} | cut -d "/" -f4)
+
+        if [ ! ${oidc_provider} ]
         then
           eksctl utils associate-iam-oidc-provider \
-            --region $AWS_REGION                   \
-            --cluster $AMX_PPL_CLUSTER_EKS         \
-            --approve
+          --region $AWS_REGION                    \
+          --cluster $AMX_PPL_CLUSTER_EKS          \
+          --approve
         fi
-  build:
+   build:
     commands:
-      ###############################
-      ### Install AWS Load Controller
-      ###############################
-      - helm repo add eks https://aws.github.io/eks-charts
-      - helm repo update
-      - kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
-      - curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
-      - AWSLoadBalancerControllerPolicy=$(aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy --output text 2> /dev/null | grep POLICY)
-      - |
-        if [ -z "${AWSLoadBalancerControllerPolicy}" ]
-        then
-          aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
-        fi
-      - rm -f iam_policy.json
-      - ServiceAccountAWSALbController=$(kubectl get serviceaccounts -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "${ServiceAccountAWSALbController}" ]
-        then
-          eksctl create iamserviceaccount \
-            --cluster $AMX_PPL_CLUSTER_EKS \
-            --namespace kube-system \
-            --name aws-load-balancer-controller \
-            --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
-            --override-existing-serviceaccounts \
-            --region $AWS_REGION --approve
-        fi
-      - AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "{AWSLoadBalancerControllerDeployment}" ]
-        then
-          helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
-            --set clusterName=$AMX_PPL_CLUSTER_EKS \
-            --set region=$AWS_REGION \
-            --set vpcId=$AMX_PPL_CLUSTER_VPC \
-            --set serviceAccount.create=false \
-            --set serviceAccount.name=aws-load-balancer-controller \
-            --set image.repository=$AMX_PPL_ECR_REPO/amazon/aws-load-balancer-controller
-        fi
-      ################################
-      ### CloudWatch Log configuration
-      ################################
-      - curl -o permissions.json https://raw.githubusercontent.com/aws-samples/amazon-eks-fluent-logging-examples/mainline/examples/fargate/cloudwatchlogs/permissions.json
-      - NameBackendLogGroup="$AMX_PPL_CLUSTER_EKS-backend"
-      - sed -i.bk 's/PLACEHOLDER_LOGGROUPNAME/${NameBackendLogGroup}/g' manifests/aws-logging-cloudwatch-configmap.yaml
-      - sed -i.bk 's/PLACEHOLDER_LOGGROUPPREFIX/k8-logs/g' manifests/aws-logging-cloudwatch-configmap.yaml
-      - sed -i.bk 's/PLACEHOLDER_REGION/$AWS_REGION/g' manifests/aws-logging-cloudwatch-configmap.yaml
-      - NamespaceAwsObservability=$(kubectl get namespace aws-observability 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "${NamespaceAwsObservability}" ]
-        then
-          kubectl apply -f manifests/aws-observability-namespace.yaml
-        fi
-      - ConfigMapAwsObservability==$(kubectl get configmap aws-logging 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "${ConfigMapAwsObservability}" ]
-        then
-          kubectl apply -f manifests/aws-logging-cloudwatch-configmap.yaml
-        fi
-      - EksFargateLoggingPolicy=$(aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy --output text 2> /dev/null | grep "^POLICY")
-      - fargatePodExecutionRole=$(eksctl get fargateprofile --cluster $AMX_PPL_CLUSTER_EKS --region $AWS_REGION | tail -1 | awk '{print $4}' | awk -F'/' '{print $2}')
-      - |
-        if [ -z "${fargatePodExecutionRole}" ]
-        then
-          echo "Missing fargatePodExecutionRole"
-          exit 1;
-        fi
-      - |
-        if [ -z "${EksFargateLoggingPolicy}" ]
-        then
-          aws iam create-policy \
-            --policy-name eks-fargate-logging-policy \
-            --policy-document file://permissions.json
-          aws iam attach-role-policy \
-            --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy \
-            --role-name ${fargatePodExecutionRole}
-        fi
-      - rm -vf permissions.json
-      ################
-      ### Install Otel
-      ################
-      - ContainerInsightsFargateProfile=$(aws eks list-fargate-profiles --cluster-name $AMX_PPL_CLUSTER_EKS --output text --region $AWS_REGION | grep fargate-container-insights)
-      - |
-        if [ -z "${ContainerInsightsFargateProfile}" ]
-        then
-          eksctl create fargateprofile           \
-            --cluster $AMX_PPL_CLUSTER_EKS        \
-            --name fargate-container-insights      \
-            --namespace fargate-container-insights  \
-            --region $AWS_REGION
-        fi
-      - ServiceAccountFargateInsights=$(kubectl get serviceaccounts -n fargate-container-insights adot-collector 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "${ServiceAccountFargateInsights}" ]
-        then
-          eksctl create iamserviceaccount \
-            --cluster $AMX_PPL_CLUSTER_EKS \
-            --region $AWS_REGION \
-            --namespace fargate-container-insights \
-            --name adot-collector \
-            --role-name EKS-Fargate-ADOT-ServiceAccount-Role \
-            --attach-policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy \
-            --approve
-        fi
-      - curl https://raw.githubusercontent.com/aws-observability/aws-otel-collector/main/deployment-template/eks/otel-fargate-container-insights.yaml | sed "s/YOUR-EKS-CLUSTER-NAME/'$AMX_PPL_CLUSTER_EKS'/" | kubectl apply -f -
-      ####################
-      ### Installation HPA
-      ####################
-      - kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-      - sed -i.bk 's/PLACEHOLDER_APP/$AMX_PPL_CLUSTER_EKS/g' manifests/hpa-cpu.yaml
-      - sed -i.bk 's/PLACEHOLDER_NAMESPACE_APP/$AMX_PPL_NAMESPACE/g' manifests/hpa-cpu.yaml
-      - rm -vf manifests/hpa-cpu.yaml.bkp
-      - NamespacePplApp=$(kubectl get namespace $AMX_PPL_NAMESPACE 2> /dev/null | grep -v "^NAME")
-      - |
-        if [ -z "${NamespacePplApp}" ]
-        then
-          eksctl create namespace $AMX_PPL_NAMESPACE
-        fi
-      - kubectl apply -f manifests/hpa-cpu.yaml
-  post_build:
-    commands:
-      - kubectl get pods -A -o wide
-      - kubectl get deployment -A -o wide
-      - kubectl top pods -A
+      - chmod +x ConfigureEks.sh
+      - ./ConfigureEks.sh $AMX_PPL_ENV $AMX_PPL_CLUSTER_EKS $AMX_APP_PREFIX $AMX_PPL_NAMESPACE $AMX_PPL_VPC_ID $AMX_PPL_ECR_REPO $AWS_REGION
 artifacts:
   files:
     - manifests/**/*
