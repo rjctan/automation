@@ -27,15 +27,15 @@ kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_C
 kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION}
 
 EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION})
-if [ -z "${EksCheckRoleBackend}" ]
+if [ ! "${EksCheckRoleBackend}" ]
 then
-  ROLE="    groups:\n        system:masters\n      rolearn: ${EKS_ROLE_BACKEND_ARN}\n      username: codebuild-eks"
+  ROLE="      groups:\n       - system:masters\n      rolearn: ${EKS_ROLE_BACKEND_ARN}\n      username: codebuild-eks"
   kubectl get -n kube-system configmap/aws-auth -o yaml | awk "/mapRoles: \|/{print;print \"${ROLE}\";next}1" > /tmp/aws-auth-patch-backend.yml
   kubectl patch configmap/aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch-backend.yml)"
 fi
 
 oidc_provider=$(aws eks describe-cluster --name ${AMX_PPL_CLUSTER_EKS} --region ${AWS_REGION} --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
-if [ -z ${oidc_provider} ]
+if [ ! ${oidc_provider} ]
 then
   eksctl utils associate-iam-oidc-provider \
   --region ${AWS_REGION}                   \
