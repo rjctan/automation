@@ -24,7 +24,7 @@ aws eks update-kubeconfig            \
   --region ${AWS_REGION}
 
 EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION})
-if [ -z "${EksCheckRoleBackend}" ]
+if [ "${EksCheckRoleBackend}" == "" ]
 then
   ROLE="    - groups:\n      - system:masters\n      rolearn: ${EKS_ROLE_BACKEND_ARN}\n      username: codebuild-eks"
   kubectl get -n kube-system configmap/aws-auth -o yaml | awk "/mapRoles: \|/{print;print \"${ROLE}\";next}1" > /tmp/aws-auth-patch-backend.yml
@@ -40,14 +40,14 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
 
 AWSLoadBalancerControllerPolicy=$(aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy --output text 2> /dev/null | grep POLICY)
-if [ -z "${AWSLoadBalancerControllerPolicy}" ]
+if [ "${AWSLoadBalancerControllerPolicy}" == "" ]
 then
   aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
 fi
 rm -f iam_policy.json
 
-ServiceAccountAWSALbController=$(kubectl get serviceaccounts -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
-if [ -z "${ServiceAccountAWSALbController}" ]
+ServiceAccountAWSALbController=$(kubectl get serviceaccounts -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${ServiceAccountAWSALbController}" == "" ]
 then
   eksctl create iamserviceaccount \
     --cluster ${AMX_PPL_CLUSTER_EKS} \
@@ -58,8 +58,8 @@ then
     --region ${AWS_REGION} --approve
 fi
 
-AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
-if [ -z "${AWSLoadBalancerControllerDeployment}" ]
+AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${AWSLoadBalancerControllerDeployment}" == "" ]
 then
   helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
     --set clusterName=${AMX_PPL_CLUSTER_EKS} \
