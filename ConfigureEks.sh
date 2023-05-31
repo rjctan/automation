@@ -59,7 +59,7 @@ then
 fi
 
 AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
-if [ -z "{AWSLoadBalancerControllerDeployment}" ]
+if [ -z "${AWSLoadBalancerControllerDeployment}" ]
 then
   helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
     --set clusterName=${AMX_PPL_CLUSTER_EKS} \
