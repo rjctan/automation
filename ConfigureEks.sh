@@ -22,9 +22,6 @@ aws eks update-kubeconfig            \
   --name ${AMX_PPL_CLUSTER_EKS}        \
   --role-arn ${EKS_DEPLOYER_ROLE_ARN} \
   --region ${AWS_REGION}
-kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep amx-ppl-cc-des-iam-rol-eks-deployer
-kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-iam-rol-eks-deployer
-kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION}
 
 EksCheckRoleBackend=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION})
 if [ -z "${EksCheckRoleBackend}" ]
@@ -36,4 +33,4 @@ fi
 
 kubectl get pods -A -o wide
 kubectl get deployment -A -o wide
-kubectl top pods -A
+#kubectl top pods -A
