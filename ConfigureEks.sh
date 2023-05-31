@@ -31,6 +31,45 @@ then
   kubectl patch configmap/aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch-backend.yml)"
 fi
 
+###############################
+### Install AWS Load Controller
+###############################
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
+
+AWSLoadBalancerControllerPolicy=$(aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy --output text 2> /dev/null | grep POLICY)
+if [ -z "${AWSLoadBalancerControllerPolicy}" ]
+then
+  aws iam create-policy --policy-name AWSLoadBalancerControllerIAMPolicy --policy-document file://iam_policy.json
+fi
+rm -f iam_policy.json
+
+ServiceAccountAWSALbController=$(kubectl get serviceaccounts -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
+if [ -z "${ServiceAccountAWSALbController}" ]
+then
+  eksctl create iamserviceaccount \
+    --cluster ${AMX_PPL_CLUSTER_EKS} \
+    --namespace kube-system \
+    --name aws-load-balancer-controller \
+    --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
+    --override-existing-serviceaccounts \
+    --region ${AWS_REGION} --approve
+fi
+
+AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME")
+if [ -z "{AWSLoadBalancerControllerDeployment}" ]
+then
+  helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
+    --set clusterName=${AMX_PPL_CLUSTER_EKS} \
+    --set region=${AWS_REGION} \
+    --set vpcId=${AMX_PPL_CLUSTER_VPC} \
+    --set serviceAccount.create=false \
+    --set serviceAccount.name=aws-load-balancer-controller \
+    --set image.repository=${AMX_PPL_ECR_REPO}/amazon/aws-load-balancer-controller
+fi
+
 kubectl get pods -A -o wide
 kubectl get deployment -A -o wide
 #kubectl top pods -A
