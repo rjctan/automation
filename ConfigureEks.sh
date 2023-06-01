@@ -53,7 +53,7 @@ then
     --cluster=${AMX_PPL_CLUSTER_EKS} \
     --namespace=kube-system \
     --name=aws-load-balancer-controller \
-    --role-name AmazonEKSLoadBalancerControllerRole \
+    --role-name AmazonEKSLoadBalancerControllerRole1 \
     --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
     --override-existing-serviceaccounts \
     --region ${AWS_REGION} --approve
