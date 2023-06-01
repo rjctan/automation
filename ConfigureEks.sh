@@ -46,7 +46,7 @@ then
 fi
 rm -f iam_policy.json
 
-ServiceAccountAWSALbController=$(kubectl get serviceaccounts -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+ServiceAccountAWSALbController=$(kubectl get serviceaccounts aws-load-balancer-controller -n kube-system 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
 if [ "${ServiceAccountAWSALbController}" == "" ]
 then
   eksctl create iamserviceaccount \
@@ -58,7 +58,7 @@ then
     --region ${AWS_REGION} --approve
 fi
 
-AWSLoadBalancerControllerDeployment=$(kubectl get deployment -n kube-system aws-load-balancer-controller 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+AWSLoadBalancerControllerDeployment=$(kubectl get deployment aws-load-balancer-controller -n kube-system 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
 if [ "${AWSLoadBalancerControllerDeployment}" == "" ]
 then
   helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
