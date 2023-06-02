@@ -65,6 +65,7 @@ then
     --region ${AWS_REGION} --approve
 fi
 
+sleep 20
 AWSLoadBalancerControllerDeployment=$(kubectl get deployment aws-load-balancer-controller -n kube-system 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
 if [ "${AWSLoadBalancerControllerDeployment}" == "" ]
 then
