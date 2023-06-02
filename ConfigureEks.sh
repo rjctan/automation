@@ -30,7 +30,7 @@ then
   kubectl get -n kube-system configmap/aws-auth -o yaml | awk "/mapRoles: \|/{print;print \"${ROLE}\";next}1" > /tmp/aws-auth-patch-backend.yml
   kubectl patch configmap/aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch-backend.yml)"
 fi
-EksCheckRoleKubectl=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${AMX_PPL_CLUSTER_EKS}-${ACCOUNT_ID}-${AWS_REGION})
+EksCheckRoleKubectl=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${EKS_ROLE_KUBECTL_ARN}-${ACCOUNT_ID}-${AWS_REGION})
 if [ "${EksCheckRoleKubectl}" == "" ]
 then
   ROLE="    - groups:\n      - system:masters\n      rolearn: ${EKS_ROLE_KUBECTL_ARN}\n      username: codebuild-eks"
