@@ -65,14 +65,13 @@ then
     --region ${AWS_REGION} --approve
 fi
 
-sleep 20
 AWSLoadBalancerControllerDeployment=$(kubectl get deployment aws-load-balancer-controller -n kube-system 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
 if [ "${AWSLoadBalancerControllerDeployment}" == "" ]
 then
   helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
     --set clusterName=${AMX_PPL_CLUSTER_EKS} \
     --set region=${AWS_REGION} \
-    --set vpcId=${AMX_PPL_CLUSTER_VPC} \
+    --set vpcId=${AMX_PPL_VPC_ID} \
     --set serviceAccount.create=false \
     --set serviceAccount.name=aws-load-balancer-controller \
     --set image.repository=${AMX_PPL_ECR_REPO}/amazon/aws-load-balancer-controller
