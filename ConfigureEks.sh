@@ -30,7 +30,7 @@ then
   kubectl get -n kube-system configmap/aws-auth -o yaml | awk "/mapRoles: \|/{print;print \"${ROLE}\";next}1" > /tmp/aws-auth-patch-backend.yml
   kubectl patch configmap/aws-auth -n kube-system --patch "$(cat /tmp/aws-auth-patch-backend.yml)"
 fi
-EksCheckRoleKubectl=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${EKS_ROLE_KUBECTL_ARN}-${ACCOUNT_ID}-${AWS_REGION})
+EksCheckRoleKubectl=$(kubectl get cm aws-auth -n kube-system -o yaml | grep rolearn | grep ${EKS_ROLE_KUBECTL_ARN})
 if [ "${EksCheckRoleKubectl}" == "" ]
 then
   ROLE="    - groups:\n      - system:masters\n      rolearn: ${EKS_ROLE_KUBECTL_ARN}\n      username: codebuild-kubectl"
@@ -76,6 +76,46 @@ then
     --set serviceAccount.name=aws-load-balancer-controller \
     --set image.repository=${AMX_PPL_ECR_REPO}/amazon/aws-load-balancer-controller
 fi
+
+################################
+### CloudWatch Log configuration
+################################
+curl -o permissions.json https://raw.githubusercontent.com/aws-samples/amazon-eks-fluent-logging-examples/mainline/examples/fargate/cloudwatchlogs/permissions.json
+NameBackendLogGroup="${AMX_PPL_CLUSTER_EKS}-backend"
+sed -i.bk 's/PLACEHOLDER_LOGGROUPNAME/${NameBackendLogGroup}/g' manifests/aws-logging-cloudwatch-configmap.yaml
+sed -i.bk 's/PLACEHOLDER_LOGGROUPPREFIX/k8-logs/g' manifests/aws-logging-cloudwatch-configmap.yaml
+sed -i.bk 's/PLACEHOLDER_REGION/${AWS_REGION}/g' manifests/aws-logging-cloudwatch-configmap.yaml
+
+NamespaceAwsObservability=$(kubectl get namespace aws-observability 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${NamespaceAwsObservability}" == "" ]
+then
+  kubectl apply -f manifests/aws-observability-namespace.yaml
+fi
+
+ConfigMapAwsObservability==$(kubectl get configmap aws-logging 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${ConfigMapAwsObservability}" == "" ]
+then
+  kubectl apply -f manifests/aws-logging-cloudwatch-configmap.yaml
+ fi
+
+EksFargateLoggingPolicy=$(aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy --output text 2> /dev/null | grep POLICY | awk '{print $2}')
+FargatePodExecutionRole=$(eksctl get fargateprofile --cluster ${AMX_PPL_CLUSTER_EKS} --region ${AWS_REGION} | tail -1 | awk '{print $4}' | awk -F'/' '{print $2}')
+if [ "${FargatePodExecutionRole}" == "" ]
+then
+  echo "Missing FargatePodExecutionRole"
+  exit 1;
+fi
+
+if [ "${EksFargateLoggingPolicy}" == "" ]
+then
+  aws iam create-policy \
+    --policy-name eks-fargate-logging-policy \
+    --policy-document file://permissions.json
+  aws iam attach-role-policy \
+    --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy \
+    --role-name ${FargatePodExecutionRole}
+fi
+rm -vf permissions.json
 
 kubectl get pods -A -o wide
 kubectl get deployment -A -o wide
