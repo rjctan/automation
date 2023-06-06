@@ -77,6 +77,33 @@ then
     --set image.repository=${AMX_PPL_ECR_REPO}/amazon/aws-load-balancer-controller
 fi
 
+################
+### Install Otel
+################
+ContainerInsightsFargateProfile=$(aws eks list-fargate-profiles --cluster-name ${AMX_PPL_CLUSTER_EKS} --output text --region ${AWS_REGION} | grep fargate-container-insights)
+if [ "${ContainerInsightsFargateProfile}" == "" ]
+then
+  eksctl create fargateprofile           \
+    --cluster ${AMX_PPL_CLUSTER_EKS}        \
+    --name fargate-container-insights      \
+    --namespace fargate-container-insights  \
+    --region ${AWS_REGION}
+fi
+
+ServiceAccountFargateInsights=$(kubectl get serviceaccounts -n fargate-container-insights adot-collector 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${ServiceAccountFargateInsights}" == "" ]
+then
+  eksctl create iamserviceaccount \
+    --cluster ${AMX_PPL_CLUSTER_EKS} \
+    --region ${AWS_REGION} \
+    --namespace fargate-container-insights \
+    --name adot-collector \
+    --role-name EKS-Fargate-ADOT-ServiceAccount-Role \
+    --attach-policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy \
+    --approve
+fi
+curl https://raw.githubusercontent.com/aws-observability/aws-otel-collector/main/deployment-template/eks/otel-fargate-container-insights.yaml | sed "s/YOUR-EKS-CLUSTER-NAME/'${AMX_PPL_CLUSTER_EKS}'/" | kubectl apply -f -
+
 ################################
 ### CloudWatch Log configuration
 ################################
