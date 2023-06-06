@@ -109,9 +109,9 @@ curl https://raw.githubusercontent.com/aws-observability/aws-otel-collector/main
 ################################
 curl -o permissions.json https://raw.githubusercontent.com/aws-samples/amazon-eks-fluent-logging-examples/mainline/examples/fargate/cloudwatchlogs/permissions.json
 NameBackendLogGroup="${AMX_PPL_CLUSTER_EKS}-backend"
-sed -i.bk 's/PLACEHOLDER_LOGGROUPNAME/${NameBackendLogGroup}/g' manifests/aws-logging-cloudwatch-configmap.yaml
-sed -i.bk 's/PLACEHOLDER_LOGGROUPPREFIX/k8-logs/g' manifests/aws-logging-cloudwatch-configmap.yaml
-sed -i.bk 's/PLACEHOLDER_REGION/${AWS_REGION}/g' manifests/aws-logging-cloudwatch-configmap.yaml
+sed -i.bk "s/PLACEHOLDER_LOGGROUPNAME/${NameBackendLogGroup}/g" manifests/aws-logging-cloudwatch-configmap.yaml
+sed -i.bk "s/PLACEHOLDER_LOGGROUPPREFIX/k8-logs/g" manifests/aws-logging-cloudwatch-configmap.yaml
+sed -i.bk "s/PLACEHOLDER_REGION/${AWS_REGION}/g" manifests/aws-logging-cloudwatch-configmap.yaml
 
 NamespaceAwsObservability=$(kubectl get namespace aws-observability 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
 if [ "${NamespaceAwsObservability}" == "" ]
@@ -152,8 +152,8 @@ rm -vf permissions.json
 ### Installation HPA
 ####################
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-sed -i.bk 's/PLACEHOLDER_APP/${AMX_PPL_CLUSTER_EKS}/g' manifests/hpa-cpu.yaml
-sed -i.bk 's/PLACEHOLDER_NAMESPACE_APP/${AMX_PPL_NAMESPACE}/g' manifests/hpa-cpu.yaml
+sed -i.bk "s/PLACEHOLDER_APP/${AMX_PPL_CLUSTER_EKS}/g" manifests/hpa-cpu.yaml
+sed -i.bk "s/PLACEHOLDER_NAMESPACE_APP/${AMX_PPL_NAMESPACE}/g" manifests/hpa-cpu.yaml
 rm -vf manifests/hpa-cpu.yaml.bkp
 
 NamespacePplApp=$(kubectl get namespace ${AMX_PPL_NAMESPACE} 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
