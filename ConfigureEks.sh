@@ -140,7 +140,7 @@ then
     --policy-document file://permissions.json
 fi
 
-if [ ${FargatePodExecutionRole} ] 
+if [ "arn:aws:iam::${ACCOUNT_ID}:role/EKS-Fargate-ADOT-ServiceAccount-Role" ] 
 then
   aws iam attach-role-policy \
     --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy \
