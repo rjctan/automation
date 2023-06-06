@@ -138,12 +138,31 @@ then
   aws iam create-policy \
     --policy-name eks-fargate-logging-policy \
     --policy-document file://permissions.json
+fi
+
+if [ ${FargatePodExecutionRole} ] 
+then
   aws iam attach-role-policy \
     --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/eks-fargate-logging-policy \
     --role-name ${FargatePodExecutionRole}
 fi
 rm -vf permissions.json
 
+####################
+### Installation HPA
+####################
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+sed -i.bk 's/PLACEHOLDER_APP/${AMX_PPL_CLUSTER_EKS}/g' manifests/hpa-cpu.yaml
+sed -i.bk 's/PLACEHOLDER_NAMESPACE_APP/${AMX_PPL_NAMESPACE}/g' manifests/hpa-cpu.yaml
+rm -vf manifests/hpa-cpu.yaml.bkp
+
+NamespacePplApp=$(kubectl get namespace ${AMX_PPL_NAMESPACE} 2> /dev/null | grep -v "^NAME" | awk '{print $1}')
+if [ "${NamespacePplApp}" == "" ]
+then
+  eksctl create namespace ${AMX_PPL_NAMESPACE}
+fi
+kubectl apply -f manifests/hpa-cpu.yaml
+
 kubectl get pods -A -o wide
 kubectl get deployment -A -o wide
-#kubectl top pods -A
+kubectl top pods -A
